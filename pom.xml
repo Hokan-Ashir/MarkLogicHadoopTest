@@ -12,14 +12,24 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <hadoop.version>2.5.1</hadoop.version>
 
-        <remote.host.ip>10.16.10.221</remote.host.ip>
+        <remote.host.ip>10.16.9.112</remote.host.ip>
         <remote.host.name>root</remote.host.name>
-        <remote.host.password>12345678</remote.host.password>
+        <remote.host.password>centos</remote.host.password>
         <docker.container.name>MarkLogicHadoopTest</docker.container.name>
         <job.executor.script.name>execute-job.sh</job.executor.script.name>
+        <mark.logic.config.file>marklogic-connection-properties.xml</mark.logic.config.file>
+        <mark.logic.xdbc.server.port>9999</mark.logic.xdbc.server.port>
 
         <file.name.to.copy>000000</file.name.to.copy>
     </properties>
+
+    <repositories>
+        <repository>
+            <id>MarkLogic-releases</id>
+            <name>MarkLogic Releases</name>
+            <url>http://developer.marklogic.com/maven2</url>
+        </repository>
+    </repositories>
 
     <dependencies>
         <dependency>
@@ -53,6 +63,32 @@
             <version>${hadoop.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>commons-modeler</groupId>
+            <artifactId>commons-modeler</artifactId>
+            <version>2.0.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.marklogic</groupId>
+            <artifactId>marklogic-mapreduce2</artifactId>
+            <version>2.1.5</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.marklogic</groupId>
+            <artifactId>marklogic-xcc</artifactId>
+            <version>8.0.5</version>
+        </dependency>
+
+        <!--<dependency>-->
+            <!--<groupId>ru.hokan</groupId>-->
+            <!--<artifactId>MarkLogicTest</artifactId>-->
+            <!--<version>1.0-SNAPSHOT</version>-->
+            <!--<scope>system</scope>-->
+            <!--<systemPath>${project.basedir}/lib/MarkLogicTest-1.0-SNAPSHOT.jar</systemPath>-->
+        <!--</dependency>-->
     </dependencies>
 
     <build>
@@ -83,7 +119,9 @@
                             </minimizeJar>
                             <artifactSet>
                                 <includes>
-                                    <include>eu.bitwalker:*</include>
+                                    <include>com.marklogic:*</include>
+                                    <include>ru.hokan:*</include>
+                                    <include>commons-modeler:*</include>
                                 </includes>
                             </artifactSet>
                         </configuration>
@@ -105,7 +143,7 @@
         <profile>
             <id>docker</id>
             <build>
-                <finalName>homework-3</finalName>
+                <finalName>MarkLogicHadoopTest</finalName>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -165,6 +203,12 @@
                                              todir="${remote.host.name}:${remote.host.password}@${remote.host.ip}:/root/" />
                                         <echo message="Coping execute job file: ${job.executor.script.name} completed" />
 
+                                        <echo message="Coping MarkLogic config file: ${mark.logic.config.file} ..." />
+                                        <scp trust="true" failonerror="true" verbose="off" sftp="true"
+                                             file="./${mark.logic.config.file}"
+                                             todir="${remote.host.name}:${remote.host.password}@${remote.host.ip}:/root/" />
+                                        <echo message="Coping MarkLogic config file: ${mark.logic.config.file} completed" />
+
                                         <!--Coping data files-->
                                         <echo message="Coping ${file.name.to.copy} ..." />
                                         <scp trust="true" failonerror="true" verbose="off" sftp="true"
@@ -188,11 +232,17 @@
                                                  host="${remote.host.ip}"
                                                  username="${remote.host.name}"
                                                  password="${remote.host.password}"
-                                                 command="docker run -d -it -v $PWD:/opt --name ${docker.container.name} sequenceiq/hadoop-docker:2.7.1"
+                                                 command="sudo -S docker run -d -it -v $PWD:/opt --name ${docker.container.name} sequenceiq/hadoop-docker:2.7.1"
                                                  timeout="120000"
                                                  usepty="true"
                                         />
                                         <echo message="Hadoop cluster in demon mode is running" />
+
+                                        <!-- TODO this is needed if you would like to connect to remote host but in this example-->
+                                        <!--we just use hadoop/docker container on the same host as MarkLogic, so it's XDBC-->
+                                        <!--port is already assigned and Docker doesn't need to see it via-->
+                                        <!--"-p" option explicity-->
+                                        <!-- -p ${mark.logic.xdbc.server.port}:${mark.logic.xdbc.server.port}-->
 
                                         <!--TODO add \r\n -> \n sed script removal in case of emergency moving from Win to Linux and wondering WTF?-->
                                         <!--sed -i -e 's/\r$//' create_mgw_3shelf_6xIPNI1P.sh-->

@@ -1,11 +1,25 @@
 package ru.hokan.text;
 
+import com.marklogic.mapreduce.DatabaseDocument;
+import com.marklogic.mapreduce.DocumentURI;
+import com.marklogic.mapreduce.MarkLogicNode;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
+import java.util.UUID;
 
-public class IpDataCountReducer extends Reducer<Text, Text, Text, Text> {
+public class IpDataCountReducer extends Reducer<Text, Text, DocumentURI, MarkLogicNode> {
+
+
+    private static final Log LOGGER = LogFactory.getLog(IpDataCountReducer.class);
 
     /**
      * {@inheritDoc}
@@ -29,7 +43,44 @@ public class IpDataCountReducer extends Reducer<Text, Text, Text, Text> {
             }
         }
 
+        Document document = createDocument(keyIn, totalNumberOfBytes, numberOfValues);
+        if (document == null) {
+            return;
+        }
+
+        MarkLogicNode node = new MarkLogicNode(document);
+        DocumentURI uri = new DocumentURI();
+        uri.setUri(UUID.randomUUID().toString());
+        context.write(uri, node);
+    }
+
+    private Document createDocument(Text keyIn, Integer totalNumberOfBytes, int numberOfValues) {
+        DocumentBuilder docBuilder;
+        try {
+            docBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+        } catch (ParserConfigurationException e) {
+            LOGGER.error(e.getMessage(), e);
+            return null;
+        }
+
+        Document document = docBuilder.newDocument();
+        Element rootElement = document.createElement("data");
+        document.appendChild(rootElement);
+        Element ipDataElement = document.createElement("ip-data");
+        rootElement.appendChild(ipDataElement);
+
+        Element ipNameElement = document.createElement("ip-name");
+        ipNameElement.setTextContent(keyIn.toString());
+        ipDataElement.appendChild(ipNameElement);
+
+        Element averageBytesValueElement = document.createElement("avg-value");
         float averageNumberOfBytes = (float) totalNumberOfBytes / numberOfValues;
-        context.write(keyIn, new Text(averageNumberOfBytes + "," + totalNumberOfBytes));
+        averageBytesValueElement.setTextContent(String.valueOf(averageNumberOfBytes));
+        ipDataElement.appendChild(averageBytesValueElement);
+
+        Element totalBytesValueElement = document.createElement("total-value");
+        totalBytesValueElement.setTextContent(String.valueOf(totalNumberOfBytes));
+        ipDataElement.appendChild(totalBytesValueElement);
+        return document;
     }
 }

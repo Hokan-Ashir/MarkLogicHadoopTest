@@ -1,5 +1,6 @@
 #!/bin/bash
 
+HOST_NAME=centos-vm.petersburg.epam.com
 INPUT_JOB_PATH=job_input
 OUTPUT_JOB_PATH=job_output
 FILE_NAMES_ARRAY[0]=000000
@@ -27,10 +28,13 @@ for n in "${FILE_NAMES_ARRAY[@]}"; do
     echo "Coping ${n} from local docker FS to HDFS complete"
 done
 
+#This is needed cause by default docker container try to knock-knock to host my its hostname.domainname alias
+#And fail in case docker container simply installed on same machine as MarkLogic DB
+echo "Setting alias to hostname ${HOST_NAME} ..."
+echo "10.16.9.112	centos-vm.petersburg.epam.com" >> /etc/hosts
+echo "Setting alias to hostname ${HOST_NAME} complete "
+
 export HADOOP_CLIENT_OPTS="-Xmx4g -Xmn1g -Xms4g $HADOOP_CLIENT_OPTS"
 echo "Running a job ..."
-bin/hadoop jar /opt/homework-3.jar ru.hokan.text.IpBytesCounter hdfs://$HOSTNAME:9000/$INPUT_JOB_PATH/ hdfs://$HOSTNAME:9000/$OUTPUT_JOB_PATH
-# TODO cause on this versionm that used in pom-file (sequenceiq/hadoop-docker:2.7.1) of docker container there is no Snappy codec support for test use case
-# we user simple text version without custom Hadoop types so as well without Snappy compression
-#bin/hadoop jar /opt/homework-3.jar ru.hokan.custom.IpBytesCounter hdfs://$HOSTNAME:9000/$INPUT_JOB_PATH/ hdfs://$HOSTNAME:9000/$OUTPUT_JOB_PATH
+bin/hadoop jar /opt/MarkLogicHadoopTest.jar ru.hokan.text.IpBytesCounter marklogic-connection-properties.xml hdfs://$HOSTNAME:9000/$INPUT_JOB_PATH/ hdfs://$HOSTNAME:9000/$OUTPUT_JOB_PATH
 echo "Job has finished"
